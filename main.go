@@ -64,7 +64,6 @@ func main() {
 }
 
 func verifySignature(payload []byte, signatureHeader string, secret string) bool {
-	// GitHub signature format: "sha256=xxxxxxx..."
 	if !strings.HasPrefix(signatureHeader, GITHUB_SIGNATURE_HEADER) {
 		return false
 	}
