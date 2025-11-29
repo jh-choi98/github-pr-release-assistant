@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 // In a real app, load this from .env
@@ -18,6 +20,11 @@ const WEBHOOK_SECRET = "development-secret"
 const GITHUB_SIGNATURE_HEADER = "sha256="
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	r := gin.Default()
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -33,14 +40,14 @@ func main() {
 
 		signature := c.GetHeader("X-Hub-Signature-256")
 		if !verifySignature(payloadBody, signature, WEBHOOK_SECRET) {
-			fmt.Println("❌ Security Alert: Signature verification failed")
+			fmt.Println("Security Alert: Signature verification failed")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid signature"})
 			return
 		}
 
 		var event GitHubPullRequestEvent
 		if err := json.Unmarshal(payloadBody, &event); err != nil {
-			fmt.Println("❌ JSON Parsing error:", err)
+			fmt.Println("JSON Parsing error:", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
 			return
 		}
@@ -49,9 +56,8 @@ func main() {
 			fmt.Printf("\n🚀 New PR Detected!\n")
 			fmt.Printf("	Repo:	%s\n", event.Repository.FullName)
 			fmt.Printf("	PR #%d:	%s\n", event.Number, event.PullRequest.Title)
-			fmt.Printf("	Diff:	%s\n", event.PullRequest.DiffURL)
 
-			// TODO (Phase 2): Send this DiffURL to OpenAI
+			go HandleNewPR(event)
 		} else {
 			fmt.Printf("Ignored event type: %s\n", event.Action)
 		}
